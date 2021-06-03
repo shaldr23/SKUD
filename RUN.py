@@ -32,8 +32,19 @@ border = '*' * 100 + '\n'  # Borders of log file parts somewhere
 logfile = f'{output_folder}/log_{datetime_appendix}.txt'
 writelog('Создан лог-файл.')
 
-# ----------------- convert pdf files into csv --------------------------------
+# ------------- parse Staff file (Табель) ------------------------------------
 
+staff_files = [f for f in os.listdir(info_folder) if re.match(r'Табель.*\.xlsx$', f)]
+if not staff_files:
+    writelog('!!! Нет табеля в папке data/info. Выполнение завершится !!!')
+    raise Exception('No Табель file!')
+staff_file = f'{info_folder}/{staff_files[0]}'
+staff = pd.read_excel(staff_file, skiprows=10)['Фамилия, имя, отчество']
+staff = staff.str.replace(r'\s+', ' ')
+staff = staff.str.strip()
+staff = staff[staff.str.match(r'^\w+ \w+ \w+$', na=False)]
+
+# ----------------- convert pdf files into csv --------------------------------
 # There could be more than one file, need to process all of them.
 pdf_files = [f for f in os.listdir(input_folder) if f.endswith('.pdf')]
 if len(pdf_files) > 0:
@@ -111,15 +122,6 @@ if frames2:
     frame2 = frame2[['ФИО', 'ДАТА', 'ПРИХОД', 'УХОД']]
 
     # filter names according to 'Табель' file
-    staff_files = [f for f in os.listdir(info_folder) if re.match(r'Табель.*\.xlsx$', f)]
-    if not staff_files:
-        writelog('!!! Нет табеля в папке data/info. Выполнение завершится !!!')
-        raise Exception('No Табель file!')
-    staff_file = f'{info_folder}/{staff_files[0]}'
-    staff = pd.read_excel(staff_file, skiprows=10)['Фамилия, имя, отчество']
-    staff = staff.str.replace(r'\s+', ' ')
-    staff = staff.str.strip()
-    staff = staff[staff.str.match(r'^\w+ \w+ \w+$', na=False)]
     staff_string = '\n\t' + '\n\t'.join(sorted(staff))
     writelog(f'Взяты имена из Табеля. Фильтрация таблицы из xlsx-файла проводится по {len(staff)} именам:{staff_string}')
     frame2 = frame2[frame2['ФИО'].isin(staff)]
