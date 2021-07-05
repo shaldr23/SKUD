@@ -24,6 +24,7 @@ output_basic_file_name = 'result'
 datetime_appendix = datetime.now().strftime("%d-%m-%Y_%Hh%Mm%Ss")
 final_file_name = f'СКУД_АиПМБРЗ_{datetime_appendix}.xlsx'
 FILL_TIME = False  # fill time when either УХОД or ПРИХОД is absent (but not both)
+USE_STAFF_FILE = True
 std_entry_time = datetime.strptime('09:30', '%H:%M')
 std_exit_time = datetime.strptime('18:00', '%H:%M')
 timetable_file = 'Расписание.xlsx'
@@ -55,6 +56,19 @@ for num, file in enumerate(pdf_files, start=1):
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                  encoding=sys.stdout.encoding)
     writelog(f'\n{border}{file}  ->  ...  ->  csv. Вывод TimeSheetExtractor2.py:\n{tse_process.stdout}\nОшибки:\n{tse_process.stderr}\n{border}')
+
+# ----- process staff (Табель) file -----------------------------
+
+if USE_STAFF_FILE:
+    staff_files = [f for f in os.listdir(info_folder) if re.match(r'.*Табель.*\.xlsx$', f, re.I)]
+    if not staff_files:
+        writelog('!!! Нет табеля в папке data/info. Выполнение завершится !!!')
+        raise Exception('No Табель file!')
+    staff_file = f'{info_folder}/{staff_files[0]}'
+    staff = pd.read_excel(staff_file, skiprows=10)['Фамилия, имя, отчество']
+    staff = staff.str.replace(r'\s+', ' ')
+    staff = staff.str.strip()
+    staff = staff[staff.str.match(r'^\w+ \w+ \w+$', na=False)]
 
 # --------- read all csv files into one DataFrame object ----------------------
 
@@ -111,15 +125,6 @@ if frames2:
     frame2 = frame2[['ФИО', 'ДАТА', 'ПРИХОД', 'УХОД']]
 
     # filter names according to 'Табель' file
-    staff_files = [f for f in os.listdir(info_folder) if re.match(r'Табель.*\.xlsx$', f)]
-    if not staff_files:
-        writelog('!!! Нет табеля в папке data/info. Выполнение завершится !!!')
-        raise Exception('No Табель file!')
-    staff_file = f'{info_folder}/{staff_files[0]}'
-    staff = pd.read_excel(staff_file, skiprows=10)['Фамилия, имя, отчество']
-    staff = staff.str.replace(r'\s+', ' ')
-    staff = staff.str.strip()
-    staff = staff[staff.str.match(r'^\w+ \w+ \w+$', na=False)]
     staff_string = '\n\t' + '\n\t'.join(sorted(staff))
     writelog(f'Взяты имена из Табеля. Фильтрация таблицы из xlsx-файла проводится по {len(staff)} именам:{staff_string}')
     frame2 = frame2[frame2['ФИО'].isin(staff)]
@@ -143,13 +148,14 @@ elif frames and not frames2:
 elif frames2 and not frames:
     workframe = frame2
 
-# check present and absent staff in the workframe
-present_staff = staff[staff.isin(workframe['ФИО'])]
-absent_staff = staff[~staff.isin(workframe['ФИО'])]
-present_staff_string = '\n\t' + '\n\t'.join(sorted(present_staff))
-absent_staff_string = '\n\t' + '\n\t'.join(sorted(absent_staff))
-writelog(f'Присутствующие из табеля в списке: {present_staff_string}')
-writelog(f'Отсутствующие: {absent_staff_string}')
+if USE_STAFF_FILE:
+    # check present and absent staff in the workframe
+    present_staff = staff[staff.isin(workframe['ФИО'])]
+    absent_staff = staff[~staff.isin(workframe['ФИО'])]
+    present_staff_string = '\n\t' + '\n\t'.join(sorted(present_staff))
+    absent_staff_string = '\n\t' + '\n\t'.join(sorted(absent_staff))
+    writelog(f'Присутствующие из табеля в списке: {present_staff_string}')
+    writelog(f'Отсутствующие: {absent_staff_string}')
 
 # fill dataframe with all dates (every day) from min to max date 
 min_date, max_date = workframe['ДАТА'].min(), workframe['ДАТА'].max()
