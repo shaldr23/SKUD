@@ -35,13 +35,13 @@ writelog('Создан лог-файл.')
 
 # ------------- parse Staff file (Табель) ------------------------------------
 
-staff_files = [f for f in os.listdir(info_folder) if re.match(r'Табель.*\.xlsx$', f)]
+staff_files = [f for f in os.listdir(info_folder) if re.match(r'.*табель.*\.xlsx$', f, re.I)]
 if not staff_files:
     writelog('!!! Нет табеля в папке data/info. Выполнение завершится !!!')
     raise Exception('No Табель file!')
 staff_file = f'{info_folder}/{staff_files[0]}'
 staff = pd.read_excel(staff_file, skiprows=10)['Фамилия, имя, отчество']
-staff = staff.str.replace(r'\s+', ' ')
+staff = staff.str.replace(r'\s+', ' ', regex=True)
 staff = staff.str.strip()
 staff = staff[staff.str.match(r'^\w+ \w+ \w+$', na=False)]
 
@@ -77,7 +77,7 @@ if USE_STAFF_FILE:
         raise Exception('No Табель file!')
     staff_file = f'{info_folder}/{staff_files[0]}'
     staff = pd.read_excel(staff_file, skiprows=10)['Фамилия, имя, отчество']
-    staff = staff.str.replace(r'\s+', ' ')
+    staff = staff.str.replace(r'\s+', ' ', regex=True)
     staff = staff.str.strip()
     staff = staff[staff.str.match(r'^\w+ \w+ \w+$', na=False)]
 
